@@ -667,6 +667,11 @@ class MarstekPlugin:
                 self.emailAlertSent=True
             return False
 
+        except asyncio.CancelledError:
+            Domoticz.Error("Cancellation error on getting Marstek Venus data. Check connection and/or Open API setting in App.")
+            self.failedCycleCount+=1
+            return False
+            
         except:
             Domoticz.Error("Errors in getting Marstek Venus data. Check results.")
             self.failedCycleCount+=1
