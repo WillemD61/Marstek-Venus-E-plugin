@@ -242,7 +242,7 @@ class MarstekUDPClient:
         )
 
         # Shared response tracking for all attempts
-        response_event = asyncio.Event()
+        # response_event = asyncio.Event()
         response_data: dict[str, Any] = {}
         last_exception: Exception | None = None
 
@@ -278,7 +278,8 @@ class MarstekUDPClient:
             loop = asyncio.get_running_loop()
 
             for attempt in range(1, attempt_limit + 1):
-                response_event.clear()
+                # response_event.clear()
+                response_event = asyncio.Event()
                 response_data.clear()
                 attempt_started = loop.time()
 
@@ -294,8 +295,9 @@ class MarstekUDPClient:
                     # Yield once more to ensure pending packets are processed before sending
                     await asyncio.sleep(0)
                     await self._send_to_host(payload_str)
-
-                    await asyncio.wait_for(response_event.wait(), timeout=effective_timeout)
+                    
+                    if not response_event.is_set():
+                        await asyncio.wait_for(response_event.wait(), timeout=effective_timeout)
 
                     if "error" in response_data:
                         error = response_data["error"]
