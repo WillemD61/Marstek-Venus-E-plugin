@@ -10,7 +10,7 @@ import time
 from copy import deepcopy
 from typing import Any
 
-from .const import (
+from const import (
     ALL_API_METHODS,
     COMMAND_BACKOFF_BASE,
     COMMAND_BACKOFF_FACTOR,
@@ -46,16 +46,14 @@ _clients_by_port = {}  # Map port -> list of clients
 class MarstekUDPClient:
     """UDP client for Marstek Local API communication."""
 
-    def __init__(self, hass, host: str | None = None, port: int = DEFAULT_PORT, remote_port: int | None = None) -> None:
+    def __init__(self, host: str | None = None, port: int = DEFAULT_PORT, remote_port: int | None = None) -> None:
         """Initialize the UDP client.
 
         Args:
-            hass: Home Assistant instance
             host: Target host IP (None for broadcast)
             port: Local port to bind to (0 for ephemeral)
             remote_port: Remote port to send to (defaults to DEFAULT_PORT)
         """
-        self.hass = hass
         self.host = host
         self.port = port
         self.remote_port = remote_port or DEFAULT_PORT
