@@ -355,6 +355,15 @@ class MarstekUDPClient:
                         self.host,
                     )
                     last_exception = None
+
+                except asyncio.CancelledError:
+                    _LOGGER.warning(
+                        "Command %s was cancelled (likely due to heartbeat overlap or shutdown)",
+                        method,
+                    )
+                    last_exception = None
+                    break
+                
                 except MarstekAPIError:
                     # Error already recorded in the if "error" block above
                     raise
