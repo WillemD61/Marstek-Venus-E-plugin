@@ -197,7 +197,7 @@ DEVSLIST={
     "soc"             : [1,  243,  6, 0, {}, 1   ,"Battery SOC","BAT"], # duplicate ? (soc, bat_soc)
     "charg_flag"      : [2,  244, 73, 0, {}, 1   ,"Charge permission","BAT"],
     "dischrg_flag"    : [3,  244, 73, 0, {}, 1   ,"Discharge permission","BAT"],
-    "bat_temp"        : [4,   80,  5, 0, {}, 1   ,"Battery temperature","BAT"],
+    "bat_temp"        : [4,   80,  5, 0, {}, 10   ,"Battery temperature","BAT"],
     "bat_capacity"    : [5,  113,  0, 0, {}, 1   ,"Remaining Capacity","BAT"],
     "rated_capacity"  : [6,  113,  0, 0, {}, 1   ,"Rated Capacity","BAT"],
 # response PV.GetStatus
@@ -611,7 +611,7 @@ class MarstekPlugin:
     async def getVenusData(self):
         if debug: Domoticz.Log("Marstek Plugin getVenusData called")
         self.Hwid=Parameters['HardwareID']
-        try:
+        if True:
             await client.connect()
             #client.host = self.IPAddress
             self.someResponseReceived=False
@@ -639,7 +639,7 @@ class MarstekPlugin:
             if response is not None:
                 self.someResponseReceived=True
                 self.processValues("ESS",response)
-
+        try:
             response=await client.get_es_mode()
             if debug: Domoticz.Log("get mode data received: "+str(response))
             if response is not None:
