@@ -139,7 +139,7 @@ from requests.exceptions import Timeout
 
 #from venus_api_v2 import VenusAPIClient
 
-import asyncio
+import asyncio, threading
 from dataclasses import dataclass, field
 from datetime import timedelta
 import importlib.util
@@ -263,6 +263,14 @@ class MarstekPlugin:
     def __init__(self):
         return
 
+    def start_async_loop(self):
+        self.loop = asyncio.new_event_loop()
+        self.loop_thread = threading.Thread(
+            target=self.loop.run_forever,
+            daemon=True
+        )
+        self.loop_thread.start()
+    
     def onStart(self):
         global debug, client
         Domoticz.Log("onStart called with parameters")
@@ -310,10 +318,13 @@ class MarstekPlugin:
             Domoticz.Log("DEVSLIST "+str(DEVSLIST[Dev][0])+DEVSLIST[Dev][6])
         #client = VenusAPIClient(ip=self.IPAddress, port=self.Port, timeout=5)
         client = MarstekUDPClient(host=self.IPAddress,port=self.Port)
-
+        self.start_async_loop()
 
     def onStop(self):
         Domoticz.Log("onStop called")
+        if self.loop:
+            self.loop.call_soon_threadsafe(self.loop.stop)
+            self.loop_thread.join()
 
     def onConnect(self, Connection, Status, Description):
         Domoticz.Log("onConnect called")
@@ -482,7 +493,10 @@ class MarstekPlugin:
             # skip one or more heartbeats if polling interval > 30 seconds
             if self.heartbeatWaits==self.heartbeatCounter-1:
                 self.stillbusy=True
-                asyncio.run(self.getVenusData())
+                asyncio.run_coroutine_threadsafe(
+                    self.getVenusData(),
+                    self.loop
+                )
                 self.heartbeatCounter=0
                 self.stillbusy=False
 
@@ -683,6 +697,7 @@ class MarstekPlugin:
 
         finally:
             await client.disconnect()
+            self.stillbusy = False
 
 global _plugin
 _plugin = MarstekPlugin()
