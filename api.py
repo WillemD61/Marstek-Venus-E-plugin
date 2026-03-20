@@ -856,3 +856,4 @@ class MarstekProtocol(asyncio.DatagramProtocol):
 
 class MarstekAPIError(Exception):
     """Exception for Marstek API errors."""
+    pass
