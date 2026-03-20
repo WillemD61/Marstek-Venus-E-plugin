@@ -110,3 +110,4 @@ WEEKDAY_MAP: Final = {
 }
 WEEKDAYS_ALL: Final = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 MAX_SCHEDULE_SLOTS: Final = 10  # Venus C/E supports slots 0-9
+
