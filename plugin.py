@@ -630,35 +630,35 @@ class MarstekPlugin:
             #client.host = self.IPAddress
             self.someResponseReceived=False
             #client = VenusAPIClient(ip=self.IPAddress, port=self.Port, timeout=5)
-            response=await client.get_battery_status()
-            if debug: Domoticz.Log("battery status data received: "+str(response))
-            if response is not None:
+            responseBS=await client.get_battery_status()
+            if debug: Domoticz.Log("battery status data received: "+str(responseBS))
+            if responseBS is not None:
                 self.someResponseReceived=True
-                self.processValues("BAT",response)
+                self.processValues("BAT",responseBS)
 
-            response=await client.get_pv_status()
-            if debug: Domoticz.Log("pv status data received: "+str(response))
-            if response is not None:
+            responseEM=await client.get_em_status()
+            if debug: Domoticz.Log("em status data received: "+str(responseEM))
+            if responseEM is not None:
                 self.someResponseReceived=True
-                self.processValues("PV",response)
+                self.processValues("EMS",responseEM)
 
-            response=await client.get_em_status()
-            if debug: Domoticz.Log("em status data received: "+str(response))
-            if response is not None:
+            responseES=await client.get_es_status()
+            if debug: Domoticz.Log("es status data received: "+str(responseES))
+            if responseES is not None:
                 self.someResponseReceived=True
-                self.processValues("EMS",response)
-
-            response=await client.get_es_status()
-            if debug: Domoticz.Log("es status data received: "+str(response))
-            if response is not None:
-                self.someResponseReceived=True
-                self.processValues("ESS",response)
+                self.processValues("ESS",responseES)
         try:
-            response=await client.get_es_mode()
-            if debug: Domoticz.Log("get mode data received: "+str(response))
-            if response is not None:
+            responseESM=await client.get_es_mode()
+            if debug: Domoticz.Log("get mode data received: "+str(responseESM))
+            if responseESM is not None:
                 self.someResponseReceived=True
-                self.processValues("ESM",response)
+                self.processValues("ESM",responseESM)
+
+            responsePV=await client.get_pv_status()
+            if debug: Domoticz.Log("pv status data received: "+str(responsePV))
+            if responsePV is not None:
+                self.someResponseReceived=True
+                self.processValues("PV",responsePV)
 
             if self.emailAlertSent==True and self.someResponseReceived==True:
                 if debug: Domoticz.Log("Communication restored. Data was received again during getVenusData cycle")
