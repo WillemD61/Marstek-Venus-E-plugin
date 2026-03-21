@@ -504,7 +504,7 @@ class MarstekPlugin:
         if self.showDataLog: Domoticz.Log(response)
         if debug: Domoticz.Log(response)
         for Dev in response:
-
+            Domoticz.Log("Processing Dev "+Dev)
             # do not process ID or the energy meter data received from getmode command in certain modes
             if (Dev!="id" and source!="ESM") or (source=="ESM" and (Dev=="mode" or Dev=="ongrid_power" or Dev=="offgrid_power" or Dev=="bat_soc")) :
 
@@ -593,7 +593,7 @@ class MarstekPlugin:
                                 Level=50
                             Devices[modeswitchDeviceID].Units[modeSelectorUnit].sValue=str(Level)
                             Devices[modeswitchDeviceID].Units[modeSelectorUnit].Update()
-
+                    Domoticz.Log("single devices updated, now checking for P1")
                     # combine 3 EMS values onto one P1 device
                     if source=="EMS":
                         if DevName=="total_power":
@@ -619,46 +619,64 @@ class MarstekPlugin:
 
             else:
                 if debug: Domoticz.Log("not processing values "+source+" "+Dev+" "+str(response[Dev]))
+            Domoticz.Log("processing values complete for "+source)        
 
 
 
     async def getVenusData(self):
         if debug: Domoticz.Log("Marstek Plugin getVenusData called")
         self.Hwid=Parameters['HardwareID']
-        if True:
+        try:
             await client.connect()
             #client.host = self.IPAddress
             self.someResponseReceived=False
             #client = VenusAPIClient(ip=self.IPAddress, port=self.Port, timeout=5)
+        except Exception as e:
+            Domoticz.Error(f"connect failed: {e}")
+
+        try:
             responseBS=await client.get_battery_status()
             if debug: Domoticz.Log("battery status data received: "+str(responseBS))
             if responseBS is not None:
                 self.someResponseReceived=True
                 self.processValues("BAT",responseBS)
+        except Exception as e:
+            Domoticz.Error(f"BAT failed: {e}")         
 
+        try:
             responseEM=await client.get_em_status()
             if debug: Domoticz.Log("em status data received: "+str(responseEM))
             if responseEM is not None:
                 self.someResponseReceived=True
                 self.processValues("EMS",responseEM)
+        except Exception as e:
+            Domoticz.Error(f"EMS failed: {e}")   
 
+        try:
             responseES=await client.get_es_status()
             if debug: Domoticz.Log("es status data received: "+str(responseES))
             if responseES is not None:
                 self.someResponseReceived=True
                 self.processValues("ESS",responseES)
+        except Exception as e:
+            Domoticz.Error(f"ESS failed: {e}")                
+
         try:
             responseESM=await client.get_es_mode()
             if debug: Domoticz.Log("get mode data received: "+str(responseESM))
             if responseESM is not None:
                 self.someResponseReceived=True
                 self.processValues("ESM",responseESM)
-
+        except Exception as e:
+            Domoticz.Error(f"ESM failed: {e}")
+            
             responsePV=await client.get_pv_status()
             if debug: Domoticz.Log("pv status data received: "+str(responsePV))
             if responsePV is not None:
                 self.someResponseReceived=True
                 self.processValues("PV",responsePV)
+        except Exception as e:
+            Domoticz.Error(f"PV failed: {e}")                
 
             if self.emailAlertSent==True and self.someResponseReceived==True:
                 if debug: Domoticz.Log("Communication restored. Data was received again during getVenusData cycle")
