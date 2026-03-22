@@ -690,7 +690,7 @@ class MarstekPlugin:
                 Domoticz.Error(f"PV failed: {e}")                
 
             if self.emailAlertSent==True and self.someResponseReceived==True:
-            if debug: Domoticz.Log("Communication restored. Data was received again during getVenusData cycle")
+                if debug: Domoticz.Log("Communication restored. Data was received again during getVenusData cycle")
                 self.emailAlertSent=False
                 self.failedCycleCount=0
                 sendemail=requests.get("http://127.0.0.1:8080/json.htm?type=command&param=sendnotification&subject='Venus comms working again'&body='Problem solved'")
