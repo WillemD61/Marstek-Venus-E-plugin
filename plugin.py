@@ -639,7 +639,8 @@ class MarstekPlugin:
                 #client = VenusAPIClient(ip=self.IPAddress, port=self.Port, timeout=5)
             except Exception as e:
                 Domoticz.Error(f"connect failed: {e}")
-
+                
+            await asyncio.sleep(1.0)
             try:
                 if debug: Domoticz.Log("trying bat status data ")
                 responseBS=await client.get_battery_status()
@@ -650,8 +651,9 @@ class MarstekPlugin:
             except asyncio.CancelledError:
                 raise  # NEVER swallow this
             except Exception as e:
-                Domoticz.Error(f"BAT failed: {e}")         
-
+                Domoticz.Error(f"BAT failed: {e}")
+                         
+            await asyncio.sleep(1.0)
             try:
                 if debug: Domoticz.Log("trying em status data ")
                 responseEM=await client.get_em_status()
@@ -664,6 +666,7 @@ class MarstekPlugin:
             except Exception as e:
                 Domoticz.Error(f"EMS failed: {e}")   
 
+            await asyncio.sleep(1.0)
             try:
                 if debug: Domoticz.Log("trying es status data ")
                 responseES=await client.get_es_status()
@@ -676,6 +679,7 @@ class MarstekPlugin:
             except Exception as e:
                 Domoticz.Error(f"ESS failed: {e}")                
 
+            await asyncio.sleep(1.0)
             try:
                 if debug: Domoticz.Log("trying es mode data ")
                 responseESM=await client.get_es_mode()
@@ -688,6 +692,7 @@ class MarstekPlugin:
             except Exception as e:
                 Domoticz.Error(f"ESM failed: {e}")
 
+            await asyncio.sleep(1.0)
             try:   
                 if debug: Domoticz.Log("trying pv status data ") 
                 responsePV=await client.get_pv_status()
