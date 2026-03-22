@@ -498,7 +498,6 @@ class MarstekPlugin:
                     self.loop
                 )
                 self.heartbeatCounter=0
-                self.stillbusy=False
 
     def processValues(self, source, response):
         if self.showDataLog: Domoticz.Log(response)
@@ -640,6 +639,8 @@ class MarstekPlugin:
             if responseBS is not None:
                 self.someResponseReceived=True
                 self.processValues("BAT",responseBS)
+        except asyncio.CancelledError:
+            raise  # NEVER swallow this
         except Exception as e:
             Domoticz.Error(f"BAT failed: {e}")         
 
@@ -649,6 +650,8 @@ class MarstekPlugin:
             if responseEM is not None:
                 self.someResponseReceived=True
                 self.processValues("EMS",responseEM)
+        except asyncio.CancelledError:
+            raise  # NEVER swallow this
         except Exception as e:
             Domoticz.Error(f"EMS failed: {e}")   
 
@@ -658,6 +661,8 @@ class MarstekPlugin:
             if responseES is not None:
                 self.someResponseReceived=True
                 self.processValues("ESS",responseES)
+        except asyncio.CancelledError:
+            raise  # NEVER swallow this                
         except Exception as e:
             Domoticz.Error(f"ESS failed: {e}")                
 
@@ -667,27 +672,32 @@ class MarstekPlugin:
             if responseESM is not None:
                 self.someResponseReceived=True
                 self.processValues("ESM",responseESM)
+        except asyncio.CancelledError:
+            raise  # NEVER swallow this                
         except Exception as e:
             Domoticz.Error(f"ESM failed: {e}")
-            
+
+        try:    
             responsePV=await client.get_pv_status()
             if debug: Domoticz.Log("pv status data received: "+str(responsePV))
             if responsePV is not None:
                 self.someResponseReceived=True
                 self.processValues("PV",responsePV)
+        except asyncio.CancelledError:
+            raise  # NEVER swallow this                
         except Exception as e:
             Domoticz.Error(f"PV failed: {e}")                
 
-            if self.emailAlertSent==True and self.someResponseReceived==True:
-                if debug: Domoticz.Log("Communication restored. Data was received again during getVenusData cycle")
-                self.emailAlertSent=False
-                self.failedCycleCount=0
-                sendemail=requests.get("http://127.0.0.1:8080/json.htm?type=command&param=sendnotification&subject='Venus comms working again'&body='Problem solved'")
+        if self.emailAlertSent==True and self.someResponseReceived==True:
+           if debug: Domoticz.Log("Communication restored. Data was received again during getVenusData cycle")
+            self.emailAlertSent=False
+            self.failedCycleCount=0
+            sendemail=requests.get("http://127.0.0.1:8080/json.htm?type=command&param=sendnotification&subject='Venus comms working again'&body='Problem solved'")
 
-            if self.someResponseReceived==False:
-                Domoticz.Error("No data received during complete cycle. Cycle nr "+str(self.failedCycleCount+1))
-                raise TimeoutError
-            return True
+        if self.someResponseReceived==False:
+            Domoticz.Error("No data received during complete cycle. Cycle nr "+str(self.failedCycleCount+1))
+            raise TimeoutError
+        return True
 
         except TimeoutError:
             Domoticz.Error("Timeout on getting Marstek Venus data. Check connection and/or Open API setting in App.")
