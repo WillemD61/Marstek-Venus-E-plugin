@@ -157,7 +157,7 @@ def load_module_from_file(module_name: str, file_path: Path):
     return module
 
 # Get paths to integration modules
-integration_path = Path(__file__).parent.parent / "Marstek-Venus-plugin"
+integration_path = Path(__file__).parent.parent / "MarstekVenus"
 # Load integration modules in dependency order
 const = load_module_from_file("const",integration_path / "const.py")
 api_module = load_module_from_file("api",integration_path / "api.py")
@@ -166,21 +166,14 @@ api_module = load_module_from_file("api",integration_path / "api.py")
 MarstekUDPClient = api_module.MarstekUDPClient
 DEFAULT_PORT = const.DEFAULT_PORT
 DEVICE_MODEL_VENUS_D = const.DEVICE_MODEL_VENUS_D
+DEVICE_MODEL_VENUS_A = const.DEVICE_MODEL_VENUS_A
 MODE_AUTO = const.MODE_AUTO
 MODE_AI = const.MODE_AI
 MODE_MANUAL = const.MODE_MANUAL
 MODE_PASSIVE = const.MODE_PASSIVE
+MODE_UPS = const.MODE_UPS
 WEEKDAY_MAP = const.WEEKDAY_MAP
 MAX_SCHEDULE_SLOTS = const.MAX_SCHEDULE_SLOTS
-
-def format_value(value: Any, unit: str = "") -> str:
-    """Format value with unit for display."""
-    if value is None:
-        return "N/A"
-    if isinstance(value, (int, float)):
-        return f"{value}{unit}"
-    return str(value)
-
 
 def _days_to_week_set(days: list[str]) -> int:
     """Convert list of day names to week_set bitmap."""
@@ -270,7 +263,7 @@ class MarstekPlugin:
             daemon=True
         )
         self.loop_thread.start()
-    
+
     def onStart(self):
         global debug, client
         Domoticz.Log("onStart called with parameters")
@@ -294,6 +287,16 @@ class MarstekPlugin:
         self.heartbeatCounter=0
         self.stillbusy=False
         self.Hwid=Parameters['HardwareID']
+        Domoticz.Log("Checking Marstek device type")
+        client = MarstekUDPClient(host=self.IPAddress,port=self.Port)
+        self.start_async_loop()
+        asyncio.run_coroutine_threadsafe(
+            self._get_device_type(self.IPAddress),
+            self.loop
+        )
+
+
+    def createDevices(self):
         # cycle through device list and create any non-existing devices when the plugin/domoticz is started
         for Dev in DEVSLIST:
             Unit=DEVSLIST[Dev][0]
@@ -302,23 +305,58 @@ class MarstekPlugin:
             Subtype=DEVSLIST[Dev][2]
             Switchtype=DEVSLIST[Dev][3]
             Options=DEVSLIST[Dev][4]
+            if Unit==50:
+                self.levelNames=Options["LevelNames"]
+                self.levelNamesList=[part.strip() for part in self.levelNames.split('|') if part.strip()]
             Name=self.namePrefix+DEVSLIST[Dev][6]
-            if DeviceID not in Devices:
-                Domoticz.Status(f"Creating device for Field {Dev} ...")
-                if ((Type==243) and (Subtype==29)):
-                    # below code puts an initial svalue on the kwh device and then changes the type to "computed". This is to work around a BUG in Domoticz for computed kwh devices. See issue 6194 on Github.
-                    Domoticz.Unit(DeviceID=DeviceID,Unit=Unit, Name=Name, Type=Type, Subtype=Subtype, Switchtype=Switchtype, Options={}, Used=1).Create()
-                    Devices[DeviceID].Units[Unit].sValue="0;0"
-                    Devices[DeviceID].Units[Unit].Update()
-                    Devices[DeviceID].Units[Unit].Options=Options
-                    Devices[DeviceID].Units[Unit].Update(UpdateOptions=True)
-                else:
-                    Domoticz.Unit(DeviceID=DeviceID,Unit=Unit, Name=Name, Type=Type, Subtype=Subtype, Switchtype=Switchtype, Options=Options, Used=1).Create()
-        for Dev in DEVSLIST:
-            Domoticz.Log("DEVSLIST "+str(DEVSLIST[Dev][0])+DEVSLIST[Dev][6])
-        #client = VenusAPIClient(ip=self.IPAddress, port=self.Port, timeout=5)
-        client = MarstekUDPClient(host=self.IPAddress,port=self.Port)
-        self.start_async_loop()
+            if Unit<7 or Unit>22 or self.deviceType==DEVICE_MODEL_VENUS_D or self.deviceType==DEVICE_MODEL_VENUS_A:
+                # devices 7 to 22 for PV data only created for model A and D
+                if DeviceID not in Devices:
+                    Domoticz.Status(f"Creating device for Field {Dev} ...")
+                    if ((Type==243) and (Subtype==29)):
+                        # below code puts an initial svalue on the kwh device and then changes the type to "computed". This is to work around a BUG in Domoticz for computed kwh devices. See issue 6194 on Github.
+                        Domoticz.Unit(DeviceID=DeviceID,Unit=Unit, Name=Name, Type=Type, Subtype=Subtype, Switchtype=Switchtype, Options={}, Used=1).Create()
+                        Devices[DeviceID].Units[Unit].sValue="0;0"
+                        Devices[DeviceID].Units[Unit].Update()
+                        Devices[DeviceID].Units[Unit].Options=Options
+                        Devices[DeviceID].Units[Unit].Update(UpdateOptions=True)
+                    else:
+                        Domoticz.Unit(DeviceID=DeviceID,Unit=Unit, Name=Name, Type=Type, Subtype=Subtype, Switchtype=Switchtype, Options=Options, Used=1).Create()
+                Domoticz.Log("DEVSLIST "+str(DEVSLIST[Dev][0])+DEVSLIST[Dev][6])
+
+
+    async def _get_device_type(self, IPAddress):
+        self.stillbusy=True
+        self.deviceType=None
+        try:
+            await client.connect()
+        except Exception as e:
+            Domoticz.Error(f"error on connect attempt : {e}")
+        await asyncio.sleep(1.0)
+        try:
+            success,devicelist = await self._retry_command(
+                    client.discover_devices(timeout=9),
+                    "discovery"
+                )
+            if not success:
+                Domoticz.Error("Error: No Marstek devices found")
+            else:
+                if debug: Domoticz.Log("Succesfully found devices"+str(devicelist))
+                for device in devicelist:
+                    if device["ip"]==IPAddress:
+                        self.deviceType=device["name"]
+                        if debug: Domoticz.Log("Found device for  IP adress, type is :"+self.deviceType)
+                        self.createDevices()
+                    else:
+                        if debug: Domoticz.Log("not the selected plugin device"+str(device))
+        except Exception as e:
+            Domoticz.Error(f"error on discovering devices : {e}")
+        finally:
+            self.stillbusy=False
+            await asyncio.sleep(1)
+            await client.disconnect()
+            await asyncio.sleep(1)
+
 
     def onStop(self):
         Domoticz.Log("onStop called")
@@ -337,144 +375,187 @@ class MarstekPlugin:
         if debug: Domoticz.Log("onCommand called for Device " + str(DeviceID) + " Unit " + str(Unit) + ": Parameter '" + str(Command) + "', Level: " + str(Level))
         modeSelectorUnit=DEVSLIST["select Marstek mode"][0]
         expectedDeviceID="{:04x}{:04x}".format(self.Hwid,modeSelectorUnit)
-        maxNrOfAttempts=3
-        nrAttemptsDone=0
+        if str(Command)=="Set Level" and DeviceID==expectedDeviceID: # it is a mode change initiated using the selector switch
+#                asyncio.create_task(self._handle_command_async(DeviceID, Unit, Level))
+            asyncio.run_coroutine_threadsafe(
+                self._handle_command_async(DeviceID, Unit, Level),
+                self.loop
+            )
+
+    async def _retry_command(self, func, name, max_attempts=3):
+        for attempt in range(1, max_attempts + 1):
+            try:
+                result = await func
+                if result:
+                    return True,result
+                Domoticz.Error(f"{name} failed (attempt {attempt}), retrying...")
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                Domoticz.Error(f"{name} error on attempt {attempt}: {e}")
+            await asyncio.sleep(1)
+        return False,result
+
+
+    async def _handle_command_async(self, DeviceID, Unit, Level):
+        while self.stillbusy:
+            Domoticz.Log("Either data collection or previous switch command still busy. Waiting 5 seconds before retrying mode switch.")
+            await asyncio.sleep(5.0)
+        else:
+            self.stillbusy=True
+            try:
+                if not client._connected:
+                    await client.connect()
+            except Exception as e:
+                Domoticz.Error(f"error on connect attempt : {e}")
+            await asyncio.sleep(1.0)
+
         try:
-            if str(Command)=="Set Level" and DeviceID==expectedDeviceID: # it is a mode change initiated using the selector switch
-                client = VenusAPIClient(ip=self.IPAddress, port=self.Port, timeout=5)
-                if Level==10: # auto mode (=self consumption)
-                    success=client.set_auto_mode()
-                    while not success and nrAttemptsDone<maxNrOfAttempts:
-                        Domoticz.Error("Change to auto mode (=self consumption mode) failed, retrying ...")
-                        success=client.set_auto_mode()
-                        nrAttemptsDone+=1
-                    if success:
-                        if debug: Domoticz.Log("Succesfully changed to auto mode (=self consumption mode).")
-                        Devices[DeviceID].Units[Unit].sValue=str(Level)
-                        Devices[DeviceID].Units[Unit].Update()
-                    else:
-                        Domoticz.Error("Change to auto mode (=self consumption mode) failed.")
-                elif Level==20: # AI mode
-                    success=client.set_ai_mode()
-                    while not success and nrAttemptsDone<maxNrOfAttempts:
-                        Domoticz.Error("Change to AI optimisation mode failed, retrying ...")
-                        success=client.set_ai_mode()
-                        nrAttemptsDone+=1
-                    if success:
-                        Domoticz.Log("Succesfully changed to AI optimisation mode.")
-                        Devices[DeviceID].Units[Unit].sValue=str(Level)
-                        Devices[DeviceID].Units[Unit].Update()
-                    else:
-                        Domoticz.Error("Change to AI optimisation mode failed.")
-                elif Level==30: # manual mode
-                    # check and build parameters. the following devices should contain config data
-                    timeperiodUnit=DEVSLIST["time_period"][0]
-                    starttimeUnit=DEVSLIST["start_time"][0]
-                    endtimeUnit=DEVSLIST["end_time"][0]
-                    weekdayUnit=DEVSLIST["week_set"][0]
-                    mmpowerUnit=DEVSLIST["mm_power"][0]
-                    timeperiod=Devices["{:04x}{:04x}".format(self.Hwid,timeperiodUnit)].Units[timeperiodUnit].sValue
-                    starttime=Devices["{:04x}{:04x}".format(self.Hwid,starttimeUnit)].Units[starttimeUnit].sValue
-                    endtime=Devices["{:04x}{:04x}".format(self.Hwid,endtimeUnit)].Units[endtimeUnit].sValue
-                    weekday=Devices["{:04x}{:04x}".format(self.Hwid,weekdayUnit)].Units[weekdayUnit].sValue
-                    mmpower=Devices["{:04x}{:04x}".format(self.Hwid,mmpowerUnit)].Units[mmpowerUnit].sValue
-                    if int(timeperiod)>=0 and int(timeperiod)<=9:
+            if Level==10: # auto mode (=self consumption)
+                success=False
+                config = {"mode": MODE_AUTO, "auto_cfg": {"enable": 1}}
+                success,response = await self._retry_command(
+                    client.set_es_mode(config),
+                    "Auto mode"
+                )
+                if success: Domoticz.Log("Succesfully changed to auto mode (=self consumption mode).")
+            elif Level == 20:
+                success=False
+                config = {"mode": MODE_AI, "ai_cfg": {"enable": 1}}
+                success,response = await self._retry_command(
+                    client.set_es_mode(config),
+                    "AI mode"
+                )
+                if success: Domoticz.Log("Succesfully changed to AI optimisation mode.")
+            elif Level == 30:
+                success=False
+                timeperiodUnit=DEVSLIST["time_period"][0]
+                starttimeUnit=DEVSLIST["start_time"][0]
+                endtimeUnit=DEVSLIST["end_time"][0]
+                weekdayUnit=DEVSLIST["week_set"][0]
+                mmpowerUnit=DEVSLIST["mm_power"][0]
+                timeperiod=Devices["{:04x}{:04x}".format(self.Hwid,timeperiodUnit)].Units[timeperiodUnit].sValue
+                starttime=Devices["{:04x}{:04x}".format(self.Hwid,starttimeUnit)].Units[starttimeUnit].sValue
+                endtime=Devices["{:04x}{:04x}".format(self.Hwid,endtimeUnit)].Units[endtimeUnit].sValue
+                weekday=Devices["{:04x}{:04x}".format(self.Hwid,weekdayUnit)].Units[weekdayUnit].sValue
+                mmpower=Devices["{:04x}{:04x}".format(self.Hwid,mmpowerUnit)].Units[mmpowerUnit].sValue
+                if timeperiod>="0" and timeperiod<="9":
+                    if isinstance(starttime[0:2],int) and isinstance(starttime[3:5],int):
                         startHr=int(starttime[0:2])
                         startMm=int(starttime[3:5])
+                    else:
+                        startHr=0
+                        startMm=0
+                    if isinstance(endtime[0:2],int) and isinstance(endtime[3:5],int):
                         endHr=int(endtime[0:2])
                         endMm=int(endtime[3:5])
-                        if (startHr>=0 and startHr<=23 and startMm>=0 and startMm<=59) and (endHr>=0 and endHr<=23 and endMm>=0 and endMm<=59):
-                            if (startHr*60+startMm)<(endHr*60+endMm):
-                                starttimestring=starttime[0:2]+":"+starttime[3:5] # make sure separator is ":"
-                                endtimestring=endtime[0:2]+":"+endtime[3:5] # make sure separator is ":"
-                                weekdayValid=True
-                                weekdayvalue=0
-                                bitvalue=64
-                                # should be string of 7 x 0 or 1, indicating on/off of weekday starting with Sunday, to match the APP
-                                # note the value passed in the API is low to high bit, starting with Monday
-                                for dayCharacter in weekday:
-                                    if (dayCharacter!="0" and dayCharacter!="1") or len(weekday)!=7:
-                                        weekdayValid=False
-                                    else:
-                                        weekdayvalue+=bitvalue*int(dayCharacter)
-                                    if bitvalue==64:
-                                        bitvalue=1
-                                    else:
-                                        bitvalue=bitvalue*2
-                                if weekdayValid:
-                                    mmpower=int(mmpower)
-                                    # positive is discharge, negative is charge
-                                    if mmpower<=self.maxOutputPower and mmpower>=-1200:
-                                        # all validation done
-                                        enable=1 # assuming period should be active
-                                        success=client.set_manual_mode(mmpower,int(timeperiod),starttimestring,endtimestring,weekdayvalue,enable)
-                                        while not success and nrAttemptsDone<maxNrOfAttempts:
-                                            Domoticz.Error("Change to manual mode failed, retrying ...")
-                                            success=client.set_manual_mode(mmpower,int(timeperiod),starttimestring,endtimestring,weekdayvalue,enable)
-                                            nrAttemptsDone+=1
-                                        if success:
-                                            Domoticz.Log("Succesfully changed to manual mode."+str(mmpower))
-                                            Devices[DeviceID].Units[Unit].sValue=str(Level)
-                                            Devices[DeviceID].Units[Unit].Update()
-                                        else:
-                                            Domoticz.Error("Change to manual mode failed")
-                                    else:
-                                        Domoticz.Error("Error: power settings not valid for manual mode.")
+                    else:
+                        endHr=23
+                        endMm=59
+                    if (startHr>=0 and startHr<=23 and startMm>=0 and startMm<=59) and (endHr>=0 and endHr<=23 and endMm>=0 and endMm<=59):
+                        if (startHr*60+startMm)<(endHr*60+endMm):
+                            starttimestring=starttime[0:2]+":"+starttime[3:5] # make sure separator is ":"
+                            endtimestring=endtime[0:2]+":"+endtime[3:5] # make sure separator is ":"
+                            weekdayValid=True
+                            weekdayvalue=0
+                            bitvalue=64
+                            # should be string of 7 x 0 or 1, indicating on/off of weekday starting with Sunday, to match the APP
+                            # note the value passed in the API is low to high bit, starting with Monday
+                            for dayCharacter in weekday:
+                                if (dayCharacter!="0" and dayCharacter!="1") or len(weekday)!=7:
+                                    weekdayValid=False
                                 else:
-                                    Domoticz.Error("Error: weekday settings not valid for manual mode, must be 7x 0/1")
+                                    weekdayvalue+=bitvalue*int(dayCharacter)
+                                if bitvalue==64:
+                                    bitvalue=1
+                                else:
+                                    bitvalue=bitvalue*2
+                            if not weekdayValid:
+                                Domoticz.Error("Weekday string not valid, using 1111111 = all days instead")
+                                bitvalue=127 # all days default
                             else:
-                                Domoticz.Error("Error: start time must be before end time for manual mode")
+                                mmpower=int(mmpower)
+                                # positive is discharge, negative is charge
+                                if mmpower<=self.maxOutputPower and mmpower>=-1200:
+                                    # all validation done
+                                    enable=1 # assuming period should be active
+                                    config = { "mode": MODE_MANUAL,
+                                                "manual_cfg": {
+                                                    "time_num": int(timeperiod),
+                                                    "start_time": starttimestring,
+                                                    "end_time": endtimestring,
+                                                    "week_set": weekdayvalue,
+                                                    "power": mmpower,
+                                                    "enable": enable,
+                                                },
+                                    }
+                                    if debug: Domoticz.Log("Manual mode config"+str(config))
+                                    success,response = await self._retry_command(
+                                        client.set_es_mode(config),
+                                        "manual mode"
+                                    )
+                                    #success=client.set_manual_mode(mmpower,int(timeperiod),starttimestring,endtimestring,weekdayvalue,enable)
+                                    if success:
+                                        Domoticz.Log("Succesfully changed to manual mode."+str(mmpower))
+                                    else:
+                                        Domoticz.Error("Change to manual mode failed")
+                                else:
+                                    Domoticz.Error("Error: power settings not valid for manual mode.")
                         else:
-                            Domoticz.Error("No valid start or end time set for manual mode")
+                            Domoticz.Error("Error: start time must be before end time for manual mode")
                     else:
-                        Domoticz.Error("No valid timeperiod set for manual mode")
-                elif Level==40: # passive mode
-                    # check and build parameters for passive mode, note: removed because they did not have an effect
-                    #pmpowerUnit=DEVSLIST["pm_power"][0]
-                    #countdownUnit=DEVSLIST["countdown"][0]
-                    #pmpower=Devices["{:04x}{:04x}".format(self.Hwid,pmpowerUnit)].Units[pmpowerUnit].sValue
-                    #countdown=Devices["{:04x}{:04x}".format(self.Hwid,countdownUnit)].Units[countdownUnit].sValue
-                    #pmpower=int(pmpower)
-                    #countdown=int(countdown)
-                    pmpower=0
-                    countdown=0 # note both power and countdown are required but don't seem to have an effect
-                    if pmpower<=self.maxOutputPower and pmpower>=-1200:
-                        # all validation done
-                        # note power and countdown are required but do not seem to have an effect
-                        success=client.set_passive_mode(pmpower,countdown)
-                        while not success and nrAttemptsDone<maxNrOfAttempts:
-                            Domoticz.Error("Change to passive mode failed, retrying ...")
-                            success=client.set_passive_mode(pmpower,countdown)
-                            nrAttemptsDone+=1
-                        if success:
-                            Domoticz.Log("Succesfully changed to passive mode.")
-                            Devices[DeviceID].Units[Unit].sValue=str(Level)
-                            Devices[DeviceID].Units[Unit].Update()
-                        else:
-                            Domoticz.Error("Change to passive mode failed")
-                    else:
-                        Domoticz.Error("No valid power setting for passive mode")
-                elif Level==50: # UPS
-                    # check and build parameters for UPS mode
-                    # note power is required but does not seem to have an effect, 0 used
-                    upower=0
-                    success=client.set_ups_mode(upower)
-                    while not success and nrAttemptsDone<maxNrOfAttempts:
-                        Domoticz.Error("Change to UPS mode failed, retrying ...")
-                        success=client.set_ups_mode(upower)
-                        nrAttemptsDone+=1
-                    if success:
-                        Domoticz.Log("Succesfully changed to UPS mode.")
-                        Devices[DeviceID].Units[Unit].sValue=str(Level)
-                        Devices[DeviceID].Units[Unit].Update()
-                    else:
-                        Domoticz.Error("Change to UPS mode failed")
+                        Domoticz.Error("No valid start or end time set for manual mode")
+                else:
+                    Domoticz.Error("No valid timeperiod set for manual mode")
+            elif Level == 40:
+                success=False
+                # power and ct time don't seem to have an effect, but cannot be 0, so random fixed values used
+                config = { "mode": MODE_PASSIVE,
+                            "passive_cfg": {
+                                "power" : 100,
+                                "cd_time" : 300
+                            }
+                }
+                success,response = await self._retry_command(
+                    client.set_es_mode(config),
+                    "Passive mode"
+                )
+                if success: Domoticz.Log("Succesfully changed to passive mode.")
+            elif Level == 50:
+                success=False
+                # power set to 0 because other values don't seem to have an effect
+                config = {
+                    "mode": MODE_UPS,
+                       "ups_cfg": {
+                           "power": 0,
+                           "enable": 1
+                        }
+                }
+                success,response = await self._retry_command(
+                    client.set_es_mode(config),
+                    "UPS mode"
+                )
+                if success: Domoticz.Log("Succesfully changed to UPS mode.")
             else:
-                if debug: Domoticz.Log("Command "+str(Command)+" DeviceID "+DeviceID+" ExpectedID "+expectedDeviceID)
-        except ValueError:
-            Domoticz.Error("Change of mode failed, please check format of input parameters for conversion to integer.")
-        except:
-            Domoticz.Error("Change of mode failed, an unexpected error occurred.")
+                return
+
+            if success:
+                if debug: Domoticz.Log(f"Updating switch device to reflect changed mode.")
+                Devices[DeviceID].Units[Unit].sValue = str(Level)
+                Devices[DeviceID].Units[Unit].Update()
+            else:
+                levelName=self.levelNamesList[int(Level/10-1)]
+                Domoticz.Error(f"Change of mode to {levelName} failed")
+
+        except asyncio.CancelledError:
+            Domoticz.Error("Command cancelled")
+            raise
+        except Exception as e:
+            Domoticz.Error(f"Unexpected error in command handling: {e}")
+
+        finally:
+            await client.disconnect()
+            self.stillbusy = False
 
 
     def onNotification(self, Name, Subject, Text, Status, Priority, Sound, ImageFile):
@@ -494,7 +575,7 @@ class MarstekPlugin:
                 # it all takes to long .. restart polling
                 self.stillbusy=False
                 self.heartbeatCounter=0
-            else:    
+            else:
                 # skip one or more heartbeats if polling interval > 30 seconds
                 if self.heartbeatWaits==self.heartbeatCounter-1:
                     self.stillbusy=True
@@ -503,7 +584,7 @@ class MarstekPlugin:
                         self.loop
                     )
                     self.heartbeatCounter=0
-  
+
 
     def processValues(self, source, response):
         if self.showDataLog: Domoticz.Log(response)
@@ -623,7 +704,7 @@ class MarstekPlugin:
 
             else:
                 if debug: Domoticz.Log("not processing values "+source+" "+Dev+" "+str(response[Dev]))
-    
+
 
 
 
@@ -633,15 +714,13 @@ class MarstekPlugin:
         try:
             try:
                 await client.connect()
-                #client.host = self.IPAddress
                 self.someResponseReceived=False
-                #client = VenusAPIClient(ip=self.IPAddress, port=self.Port, timeout=5)
             except Exception as e:
                 Domoticz.Error(f"connect failed: {e}")
-                
+
             await asyncio.sleep(1.0)
             try:
-                if debug: Domoticz.Log("trying bat status data ")
+                if debug: Domoticz.Log("trying get battery status ")
                 responseBS=await client.get_battery_status()
                 if debug: Domoticz.Log("battery status data received: "+str(responseBS))
                 if responseBS is not None:
@@ -651,10 +730,10 @@ class MarstekPlugin:
                 raise  # NEVER swallow this
             except Exception as e:
                 Domoticz.Error(f"BAT failed: {e}")
-                         
+
             await asyncio.sleep(1.0)
             try:
-                if debug: Domoticz.Log("trying em status data ")
+                if debug: Domoticz.Log("trying get em status ")
                 responseEM=await client.get_em_status()
                 if debug: Domoticz.Log("em status data received: "+str(responseEM))
                 if responseEM is not None:
@@ -663,46 +742,47 @@ class MarstekPlugin:
             except asyncio.CancelledError:
                 raise  # NEVER swallow this
             except Exception as e:
-                Domoticz.Error(f"EMS failed: {e}")   
+                Domoticz.Error(f"EMS failed: {e}")
 
             await asyncio.sleep(1.0)
             try:
-                if debug: Domoticz.Log("trying es status data ")
+                if debug: Domoticz.Log("trying get es status ")
                 responseES=await client.get_es_status()
                 if debug: Domoticz.Log("es status data received: "+str(responseES))
                 if responseES is not None:
                     self.someResponseReceived=True
                     self.processValues("ESS",responseES)
             except asyncio.CancelledError:
-                raise  # NEVER swallow this                
+                raise  # NEVER swallow this
             except Exception as e:
-                Domoticz.Error(f"ESS failed: {e}")                
+                Domoticz.Error(f"ESS failed: {e}")
 
             await asyncio.sleep(1.0)
             try:
-                if debug: Domoticz.Log("trying es mode data ")
+                if debug: Domoticz.Log("trying get es mode ")
                 responseESM=await client.get_es_mode()
                 if debug: Domoticz.Log("get mode data received: "+str(responseESM))
                 if responseESM is not None:
                     self.someResponseReceived=True
                     self.processValues("ESM",responseESM)
             except asyncio.CancelledError:
-                raise  # NEVER swallow this                
+                raise  # NEVER swallow this
             except Exception as e:
                 Domoticz.Error(f"ESM failed: {e}")
 
             await asyncio.sleep(1.0)
-            try:   
-                if debug: Domoticz.Log("trying pv status data ") 
-                responsePV=await client.get_pv_status()
-                if debug: Domoticz.Log("pv status data received: "+str(responsePV))
-                if responsePV is not None:
-                    self.someResponseReceived=True
-                    self.processValues("PV",responsePV)
-            except asyncio.CancelledError:
-                raise  # NEVER swallow this                
-            except Exception as e:
-                Domoticz.Error(f"PV failed: {e}")                
+            if self.deviceType==DEVICE_MODEL_VENUS_D or self.deviceType==DEVICE_MODEL_VENUS_A:
+                try:
+                    if debug: Domoticz.Log("trying get pv status ")
+                    responsePV=await client.get_pv_status()
+                    if debug: Domoticz.Log("pv status data received: "+str(responsePV))
+                    if responsePV is not None:
+                        self.someResponseReceived=True
+                        self.processValues("PV",responsePV)
+                except asyncio.CancelledError:
+                    raise  # NEVER swallow this
+                except Exception as e:
+                    Domoticz.Error(f"PV failed: {e}")
 
             if self.emailAlertSent==True and self.someResponseReceived==True:
                 if debug: Domoticz.Log("Communication restored. Data was received again during getVenusData cycle")
@@ -729,7 +809,7 @@ class MarstekPlugin:
             Domoticz.Error("Cancellation error on getting Marstek Venus data. Check connection and/or Open API setting in App.")
             self.failedCycleCount+=1
             return False
-            
+
         except Exception as e:
             Domoticz.Error(f"Errors in getting Marstek Venus data. Check results. {e}")
             self.failedCycleCount+=1
