@@ -486,18 +486,24 @@ class MarstekPlugin:
     def onHeartbeat(self):
         self.heartbeatCounter+=1
         if debug: Domoticz.Log("onHeartbeat called")
-        if self.stillbusy and self.heartbeatCounter<5: # max 5 cycles total wait
+        if self.stillbusy and self.heartbeatCounter<2*self.heartbeatWaits: # max 2 polling intervals total wait
             if debug: Domoticz.Log("Skipping another heartbeat - data collection still busy")
             return
         else:
-            # skip one or more heartbeats if polling interval > 30 seconds
-            if self.heartbeatWaits==self.heartbeatCounter-1:
-                self.stillbusy=True
-                asyncio.run_coroutine_threadsafe(
-                    self.getVenusData(),
-                    self.loop
-                )
+            if self.stillbusy:
+                # it all takes to long .. restart polling
+                self.stillbusy=False
                 self.heartbeatCounter=0
+            else:    
+                # skip one or more heartbeats if polling interval > 30 seconds
+                if self.heartbeatWaits==self.heartbeatCounter-1:
+                    self.stillbusy=True
+                    asyncio.run_coroutine_threadsafe(
+                        self.getVenusData(),
+                        self.loop
+                    )
+                    self.heartbeatCounter=0
+  
 
     def processValues(self, source, response):
         if self.showDataLog: Domoticz.Log(response)
@@ -635,6 +641,7 @@ class MarstekPlugin:
                 Domoticz.Error(f"connect failed: {e}")
 
             try:
+                if debug: Domoticz.Log("trying bat status data ")
                 responseBS=await client.get_battery_status()
                 if debug: Domoticz.Log("battery status data received: "+str(responseBS))
                 if responseBS is not None:
@@ -646,6 +653,7 @@ class MarstekPlugin:
                 Domoticz.Error(f"BAT failed: {e}")         
 
             try:
+                if debug: Domoticz.Log("trying em status data ")
                 responseEM=await client.get_em_status()
                 if debug: Domoticz.Log("em status data received: "+str(responseEM))
                 if responseEM is not None:
@@ -657,6 +665,7 @@ class MarstekPlugin:
                 Domoticz.Error(f"EMS failed: {e}")   
 
             try:
+                if debug: Domoticz.Log("trying es status data ")
                 responseES=await client.get_es_status()
                 if debug: Domoticz.Log("es status data received: "+str(responseES))
                 if responseES is not None:
@@ -668,6 +677,7 @@ class MarstekPlugin:
                 Domoticz.Error(f"ESS failed: {e}")                
 
             try:
+                if debug: Domoticz.Log("trying es mode data ")
                 responseESM=await client.get_es_mode()
                 if debug: Domoticz.Log("get mode data received: "+str(responseESM))
                 if responseESM is not None:
@@ -678,7 +688,8 @@ class MarstekPlugin:
             except Exception as e:
                 Domoticz.Error(f"ESM failed: {e}")
 
-            try:    
+            try:   
+                if debug: Domoticz.Log("trying pv status data ") 
                 responsePV=await client.get_pv_status()
                 if debug: Domoticz.Log("pv status data received: "+str(responsePV))
                 if responsePV is not None:
@@ -715,8 +726,8 @@ class MarstekPlugin:
             self.failedCycleCount+=1
             return False
             
-        except:
-            Domoticz.Error("Errors in getting Marstek Venus data. Check results.")
+        except Exception as e:
+            Domoticz.Error(f"Errors in getting Marstek Venus data. Check results. {e}")
             self.failedCycleCount+=1
             if self.notificationsOn and self.emailAlertSent==False:
                 Domoticz.Log("Sending email alert....")
