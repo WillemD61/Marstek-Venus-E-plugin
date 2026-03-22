@@ -626,78 +626,79 @@ class MarstekPlugin:
         if debug: Domoticz.Log("Marstek Plugin getVenusData called")
         self.Hwid=Parameters['HardwareID']
         try:
-            await client.connect()
-            #client.host = self.IPAddress
-            self.someResponseReceived=False
-            #client = VenusAPIClient(ip=self.IPAddress, port=self.Port, timeout=5)
-        except Exception as e:
-            Domoticz.Error(f"connect failed: {e}")
+            try:
+                await client.connect()
+                #client.host = self.IPAddress
+                self.someResponseReceived=False
+                #client = VenusAPIClient(ip=self.IPAddress, port=self.Port, timeout=5)
+            except Exception as e:
+                Domoticz.Error(f"connect failed: {e}")
 
-        try:
-            responseBS=await client.get_battery_status()
-            if debug: Domoticz.Log("battery status data received: "+str(responseBS))
-            if responseBS is not None:
-                self.someResponseReceived=True
-                self.processValues("BAT",responseBS)
-        except asyncio.CancelledError:
-            raise  # NEVER swallow this
-        except Exception as e:
-            Domoticz.Error(f"BAT failed: {e}")         
+            try:
+                responseBS=await client.get_battery_status()
+                if debug: Domoticz.Log("battery status data received: "+str(responseBS))
+                if responseBS is not None:
+                    self.someResponseReceived=True
+                    self.processValues("BAT",responseBS)
+            except asyncio.CancelledError:
+                raise  # NEVER swallow this
+            except Exception as e:
+                Domoticz.Error(f"BAT failed: {e}")         
 
-        try:
-            responseEM=await client.get_em_status()
-            if debug: Domoticz.Log("em status data received: "+str(responseEM))
-            if responseEM is not None:
-                self.someResponseReceived=True
-                self.processValues("EMS",responseEM)
-        except asyncio.CancelledError:
-            raise  # NEVER swallow this
-        except Exception as e:
-            Domoticz.Error(f"EMS failed: {e}")   
+            try:
+                responseEM=await client.get_em_status()
+                if debug: Domoticz.Log("em status data received: "+str(responseEM))
+                if responseEM is not None:
+                    self.someResponseReceived=True
+                    self.processValues("EMS",responseEM)
+            except asyncio.CancelledError:
+                raise  # NEVER swallow this
+            except Exception as e:
+                Domoticz.Error(f"EMS failed: {e}")   
 
-        try:
-            responseES=await client.get_es_status()
-            if debug: Domoticz.Log("es status data received: "+str(responseES))
-            if responseES is not None:
-                self.someResponseReceived=True
-                self.processValues("ESS",responseES)
-        except asyncio.CancelledError:
-            raise  # NEVER swallow this                
-        except Exception as e:
-            Domoticz.Error(f"ESS failed: {e}")                
+            try:
+                responseES=await client.get_es_status()
+                if debug: Domoticz.Log("es status data received: "+str(responseES))
+                if responseES is not None:
+                    self.someResponseReceived=True
+                    self.processValues("ESS",responseES)
+            except asyncio.CancelledError:
+                raise  # NEVER swallow this                
+            except Exception as e:
+                Domoticz.Error(f"ESS failed: {e}")                
 
-        try:
-            responseESM=await client.get_es_mode()
-            if debug: Domoticz.Log("get mode data received: "+str(responseESM))
-            if responseESM is not None:
-                self.someResponseReceived=True
-                self.processValues("ESM",responseESM)
-        except asyncio.CancelledError:
-            raise  # NEVER swallow this                
-        except Exception as e:
-            Domoticz.Error(f"ESM failed: {e}")
+            try:
+                responseESM=await client.get_es_mode()
+                if debug: Domoticz.Log("get mode data received: "+str(responseESM))
+                if responseESM is not None:
+                    self.someResponseReceived=True
+                    self.processValues("ESM",responseESM)
+            except asyncio.CancelledError:
+                raise  # NEVER swallow this                
+            except Exception as e:
+                Domoticz.Error(f"ESM failed: {e}")
 
-        try:    
-            responsePV=await client.get_pv_status()
-            if debug: Domoticz.Log("pv status data received: "+str(responsePV))
-            if responsePV is not None:
-                self.someResponseReceived=True
-                self.processValues("PV",responsePV)
-        except asyncio.CancelledError:
-            raise  # NEVER swallow this                
-        except Exception as e:
-            Domoticz.Error(f"PV failed: {e}")                
+            try:    
+                responsePV=await client.get_pv_status()
+                if debug: Domoticz.Log("pv status data received: "+str(responsePV))
+                if responsePV is not None:
+                    self.someResponseReceived=True
+                    self.processValues("PV",responsePV)
+            except asyncio.CancelledError:
+                raise  # NEVER swallow this                
+            except Exception as e:
+                Domoticz.Error(f"PV failed: {e}")                
 
-        if self.emailAlertSent==True and self.someResponseReceived==True:
-           if debug: Domoticz.Log("Communication restored. Data was received again during getVenusData cycle")
-            self.emailAlertSent=False
-            self.failedCycleCount=0
-            sendemail=requests.get("http://127.0.0.1:8080/json.htm?type=command&param=sendnotification&subject='Venus comms working again'&body='Problem solved'")
+            if self.emailAlertSent==True and self.someResponseReceived==True:
+            if debug: Domoticz.Log("Communication restored. Data was received again during getVenusData cycle")
+                self.emailAlertSent=False
+                self.failedCycleCount=0
+                sendemail=requests.get("http://127.0.0.1:8080/json.htm?type=command&param=sendnotification&subject='Venus comms working again'&body='Problem solved'")
 
-        if self.someResponseReceived==False:
-            Domoticz.Error("No data received during complete cycle. Cycle nr "+str(self.failedCycleCount+1))
-            raise TimeoutError
-        return True
+            if self.someResponseReceived==False:
+                Domoticz.Error("No data received during complete cycle. Cycle nr "+str(self.failedCycleCount+1))
+                raise TimeoutError
+            return True
 
         except TimeoutError:
             Domoticz.Error("Timeout on getting Marstek Venus data. Check connection and/or Open API setting in App.")
@@ -780,4 +781,3 @@ def DumpConfigToLog():
             Domoticz.Debug("--->Unit sValue:   '" + Unit.sValue + "'")
             Domoticz.Debug("--->Unit LastLevel: " + str(Unit.LastLevel))
     return
-
