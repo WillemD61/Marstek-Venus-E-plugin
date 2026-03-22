@@ -68,6 +68,7 @@ MODE_AUTO: Final = "Auto"
 MODE_AI: Final = "AI"
 MODE_MANUAL: Final = "Manual"
 MODE_PASSIVE: Final = "Passive"
+MODE_UPS: Final = "UPS"
 
 OPERATING_MODES: Final = [MODE_AUTO, MODE_AI, MODE_MANUAL, MODE_PASSIVE]
 
