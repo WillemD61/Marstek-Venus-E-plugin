@@ -362,7 +362,7 @@ class MarstekUDPClient:
                         method,
                     )
                     last_exception = None
-                    break
+                    raise
                 
                 except MarstekAPIError:
                     # Error already recorded in the if "error" block above
