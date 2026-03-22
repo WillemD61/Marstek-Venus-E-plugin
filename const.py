@@ -59,6 +59,7 @@ ERROR_INVALID_PARAMS: Final = -32602
 ERROR_INTERNAL_ERROR: Final = -32603
 
 # Device models
+DEVICE_MODEL_VENUS_A: Final = "Venus A"
 DEVICE_MODEL_VENUS_C: Final = "VenusC"
 DEVICE_MODEL_VENUS_D: Final = "VenusD"
 DEVICE_MODEL_VENUS_E: Final = "VenusE"
@@ -70,7 +71,7 @@ MODE_MANUAL: Final = "Manual"
 MODE_PASSIVE: Final = "Passive"
 MODE_UPS: Final = "UPS"
 
-OPERATING_MODES: Final = [MODE_AUTO, MODE_AI, MODE_MANUAL, MODE_PASSIVE]
+OPERATING_MODES: Final = [MODE_AUTO, MODE_AI, MODE_MANUAL, MODE_PASSIVE, MODE_UPS]
 
 # Battery states
 BATTERY_STATE_IDLE: Final = "idle"
@@ -111,4 +112,5 @@ WEEKDAY_MAP: Final = {
 }
 WEEKDAYS_ALL: Final = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 MAX_SCHEDULE_SLOTS: Final = 10  # Venus C/E supports slots 0-9
+
 
