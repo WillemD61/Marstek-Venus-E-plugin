@@ -509,7 +509,6 @@ class MarstekPlugin:
         if self.showDataLog: Domoticz.Log(response)
         if debug: Domoticz.Log(response)
         for Dev in response:
-            Domoticz.Log("Processing Dev "+Dev)
             # do not process ID or the energy meter data received from getmode command in certain modes
             if (Dev!="id" and source!="ESM") or (source=="ESM" and (Dev=="mode" or Dev=="ongrid_power" or Dev=="offgrid_power" or Dev=="bat_soc")) :
 
@@ -598,7 +597,7 @@ class MarstekPlugin:
                                 Level=50
                             Devices[modeswitchDeviceID].Units[modeSelectorUnit].sValue=str(Level)
                             Devices[modeswitchDeviceID].Units[modeSelectorUnit].Update()
-                    Domoticz.Log("single devices updated, now checking for P1")
+
                     # combine 3 EMS values onto one P1 device
                     if source=="EMS":
                         if DevName=="total_power":
@@ -624,7 +623,7 @@ class MarstekPlugin:
 
             else:
                 if debug: Domoticz.Log("not processing values "+source+" "+Dev+" "+str(response[Dev]))
-            Domoticz.Log("processing values complete for "+source)        
+    
 
 
 
