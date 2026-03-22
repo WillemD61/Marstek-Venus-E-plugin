@@ -295,7 +295,7 @@ class MarstekUDPClient:
                     # Yield once more to ensure pending packets are processed before sending
                     await asyncio.sleep(0)
                     await self._send_to_host(payload_str)
-                    
+
                     if not response_event.is_set():
                         await asyncio.wait_for(response_event.wait(), timeout=effective_timeout)
 
@@ -363,7 +363,7 @@ class MarstekUDPClient:
                     )
                     last_exception = None
                     raise
-                
+
                 except MarstekAPIError:
                     # Error already recorded in the if "error" block above
                     raise
