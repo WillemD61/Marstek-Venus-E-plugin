@@ -157,7 +157,7 @@ def load_module_from_file(module_name: str, file_path: Path):
     return module
 
 # Get paths to integration modules
-integration_path = Path(__file__).parent.parent / "MarstekVenus"
+integration_path = Path(__file__).parent.parent / "Marstek-Venus-plugin"
 # Load integration modules in dependency order
 const = load_module_from_file("const",integration_path / "const.py")
 api_module = load_module_from_file("api",integration_path / "api.py")
