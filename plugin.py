@@ -340,7 +340,7 @@ class MarstekPlugin:
         try:
             async with self.api_lock:
                 success,devicelist = await self._retry_command(
-                        lambda: self.client.discover_devices(timeout=15),
+                        lambda: self.client.discover_devices(timeout=9),
                         "discovery"
                     )
             Domoticz.Log(f"Discovery raw result: {devicelist}")
@@ -401,8 +401,8 @@ class MarstekPlugin:
                 raise
             except Exception as e:
                 Domoticz.Error(f"{name} error on attempt {attempt}: {e}")
-                await asyncio.sleep(1)
-            await asyncio.sleep(1)
+                await asyncio.sleep(3)
+            await asyncio.sleep(3)
         return False,result
 
 
