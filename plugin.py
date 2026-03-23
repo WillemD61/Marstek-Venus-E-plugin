@@ -335,7 +335,7 @@ class MarstekPlugin:
                 await self.client.connect()
         except Exception as e:
             Domoticz.Error(f"error on connect attempt : {e}")        
-        await asyncio.sleep(1.0)
+        await asyncio.sleep(3.0)
         deviceFound=False
         try:
             async with self.api_lock:
