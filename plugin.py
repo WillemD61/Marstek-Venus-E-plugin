@@ -343,8 +343,8 @@ class MarstekPlugin:
                         lambda: self.client.discover_devices(timeout=15),
                         "discovery"
                     )
+            Domoticz.Log(f"Discovery raw result: {devicelist}")
             Domoticz.Log("returned success "+str(success))
-            Domoticz.Log("returned devicelist "+str(devicelist))
             if not success: 
                 Domoticz.Error("Error: No Marstek devices found")
             else:    
