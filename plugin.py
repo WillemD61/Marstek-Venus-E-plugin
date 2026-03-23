@@ -293,7 +293,7 @@ class MarstekPlugin:
             self.loop
         )
         try:
-            future.result(timeout=15)   # wait here
+            future.result(timeout=9)   # wait here
         except Exception as e:
             Domoticz.Error(f"Device discovery failed: {e}")
 
@@ -335,7 +335,7 @@ class MarstekPlugin:
                 await self.client.connect()
         except Exception as e:
             Domoticz.Error(f"error on connect attempt : {e}")        
-        await asyncio.sleep(5.0)
+        await asyncio.sleep(1.0)
         deviceFound=False
         try:
             async with self.api_lock:
@@ -359,10 +359,8 @@ class MarstekPlugin:
             Domoticz.Error(f"error on discovering devices : {e}")    
         finally:
             if not deviceFound: Domoticz.Error("No Marstek device found on IPAddress: "+str(IPAddress))
-            #self.stillbusy=False
             await asyncio.sleep(1)
-            #await self.client.disconnect() 
-            #await asyncio.sleep(1)     
+ 
 
 
     def onStop(self):
