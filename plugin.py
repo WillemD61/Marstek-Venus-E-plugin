@@ -136,6 +136,7 @@ import json,requests   # make sure these are available in your system environmen
 import time
 from datetime import datetime
 from requests.exceptions import Timeout
+import urllib.parse
 
 import asyncio, threading
 from dataclasses import dataclass, field
@@ -154,7 +155,7 @@ def load_module_from_file(module_name: str, file_path: Path):
     return module
 
 # Get paths to integration modules
-integration_path = Path(__file__).parent.parent / "Marstek-Venus-plugin"
+integration_path = Path(__file__).parent.parent / "MarstekVenus"
 # Load integration modules in dependency order
 const = load_module_from_file("const",integration_path / "const.py")
 api_module = load_module_from_file("api",integration_path / "api.py")
@@ -273,9 +274,9 @@ class MarstekPlugin:
             target=init_loop,
             daemon=True
         )
-        self.loop_thread.start() 
+        self.loop_thread.start()
 
-   
+
     def onStart(self):
         global debug
         Domoticz.Log("onStart called with parameters")
@@ -321,7 +322,7 @@ class MarstekPlugin:
             Subtype=DEVSLIST[Dev][2]
             Switchtype=DEVSLIST[Dev][3]
             Options=DEVSLIST[Dev][4]
-            if Unit==50: 
+            if Unit==50:
                 self.levelNames=Options["LevelNames"]
                 self.levelNamesList=[part.strip() for part in self.levelNames.split('|') if part.strip()]
             Name=self.namePrefix+DEVSLIST[Dev][6]
@@ -349,7 +350,7 @@ class MarstekPlugin:
                 if not self.client._connected:
                     await self.client.connect()
             except Exception as e:
-                Domoticz.Error(f"error on connect attempt : {e}")        
+                Domoticz.Error(f"error on connect attempt : {e}")
             await asyncio.sleep(3.0)
             deviceFound=False
             try:
@@ -366,7 +367,7 @@ class MarstekPlugin:
                     if debug: Domoticz.Log("Found selected device for  IP adress, type is :"+self.deviceType)
                     self.createDevices()
             except Exception as e:
-                Domoticz.Error(f"error on discovering devices : {e}")    
+                Domoticz.Error(f"error on discovering devices : {e}")
             finally:
                 if not deviceFound: Domoticz.Error("No Marstek device found on IPAddress: "+str(IPAddress))
                 await asyncio.sleep(1)
@@ -399,7 +400,7 @@ class MarstekPlugin:
 
         except Exception as e:
             Domoticz.Error(f"Error in onStop: {e}")
-      
+
 
     def onConnect(self, Connection, Status, Description):
         Domoticz.Log("onConnect called")
@@ -436,12 +437,12 @@ class MarstekPlugin:
 
 
     async def _handle_command_async(self, DeviceID, Unit, Level):
-        async with self.api_lock:   
+        async with self.api_lock:
             try:
                 if not self.client._connected:
                     await self.client.connect()
             except Exception as e:
-                Domoticz.Error(f"error on connect attempt : {e}")        
+                Domoticz.Error(f"error on connect attempt : {e}")
             await asyncio.sleep(1.0)
 
             try:
@@ -504,7 +505,7 @@ class MarstekPlugin:
                                         bitvalue=1
                                     else:
                                         bitvalue=bitvalue*2
-                                if not weekdayValid: 
+                                if not weekdayValid:
                                     Domoticz.Error("Weekday string not valid, using 1111111 = all days instead")
                                     bitvalue=127 # all days default
                                 try:
@@ -516,7 +517,7 @@ class MarstekPlugin:
                                 if mmpower<=self.maxOutputPower and mmpower>=-1200 and mmpower!=0:
                                     # all validation done
                                     enable=1 # assuming period should be active
-                                    config = { "mode": MODE_MANUAL, 
+                                    config = { "mode": MODE_MANUAL,
                                                 "manual_cfg": {
                                                     "time_num": int(timeperiod),
                                                     "start_time": starttimestring,
@@ -547,7 +548,7 @@ class MarstekPlugin:
                 elif Level == 40:
                     success=False
                     # power and ct time don't seem to have an effect, but cannot be 0, so random fixed values used
-                    config = { "mode": MODE_PASSIVE, 
+                    config = { "mode": MODE_PASSIVE,
                                 "passive_cfg": {
                                     "power" : 100,
                                     "cd_time" : 300
@@ -567,7 +568,7 @@ class MarstekPlugin:
                             "power": 0,
                             "enable": 1
                             }
-                    }    
+                    }
                     success,response = await self._retry_command(
                         lambda: self.client.set_es_mode(config),
                         "UPS mode"
@@ -590,7 +591,7 @@ class MarstekPlugin:
             except Exception as e:
                 Domoticz.Error(f"Unexpected error in command handling: {e}")
 
-                 
+
     def onNotification(self, Name, Subject, Text, Status, Priority, Sound, ImageFile):
         Domoticz.Log("Notification: " + Name + "," + Subject + "," + Text + "," + Status + "," + str(Priority) + "," + Sound + "," + ImageFile)
 
@@ -610,16 +611,17 @@ class MarstekPlugin:
                 return
 
         if self.api_lock.locked():
+            maxWait=6*60 # each of teh 5 timed-out get_.._status requests in getvenusdata takes max 1 minute
             if debug:
                 Domoticz.Log("Skipping heartbeat - previous cycle still running")
-                Domoticz.Log("Time since last run"+str(time.time() - self.last_run)+" max wait time "+str(int(30*(self.heartbeatWaits+1))))
-            if time.time() - self.last_run > (30*(self.heartbeatWaits+1)):
-                Domoticz.Error("Worker stuck, restarting client ")  
+                Domoticz.Log("Time since last run"+str(time.time() - self.last_run)+" max wait time "+str(maxWait))
+            if time.time() - self.last_run > maxWait:
+                Domoticz.Error("Waited longer than max time , restarting client ")
                 asyncio.run_coroutine_threadsafe(
                     self.reset_client(),
                     self.loop
                 )
-            else:      
+            else:
                 return
 
         # Trigger polling
@@ -628,8 +630,8 @@ class MarstekPlugin:
             self.loop
         )
         self.last_run = time.time()
-        self.heartbeatCounter = 0            
-  
+        self.heartbeatCounter = 0
+
 
     def processValues(self, source, response):
         if self.showDataLog: Domoticz.Log(response)
@@ -749,11 +751,11 @@ class MarstekPlugin:
 
             else:
                 if debug: Domoticz.Log("not processing values "+source+" "+Dev+" "+str(response[Dev]))
-    
+
 
     async def getVenusData(self):
         if debug: Domoticz.Log("Marstek Plugin getVenusData called")
-   
+
         self.Hwid=Parameters['HardwareID']
         #async with self.api_lock:
         if self.api_lock.locked():
@@ -766,7 +768,7 @@ class MarstekPlugin:
                     if not self.client._connected:
                         await self.client.connect()
                 except Exception as e:
-                    Domoticz.Error(f"error on connect attempt : {e}")        
+                    Domoticz.Error(f"error on connect attempt : {e}")
                 await asyncio.sleep(1.0)
                 self.someResponseReceived=False
 
@@ -781,10 +783,10 @@ class MarstekPlugin:
                 except asyncio.CancelledError:
                     raise  # NEVER swallow this
                 except TimeoutError:
-                    Domoticz.Error(f"get battery status timeout.")
+                    Domoticz.Error(f"get battery status timeout. trying next ...")
                 except Exception as e:
                     Domoticz.Error(f"get battery status failed: {e}")
-                            
+
                 await asyncio.sleep(1.0)
                 try:
                     if debug: Domoticz.Log("trying get em status ")
@@ -796,9 +798,9 @@ class MarstekPlugin:
                 except asyncio.CancelledError:
                     raise  # NEVER swallow this
                 except TimeoutError:
-                    Domoticz.Error(f"get em status timeout.")
+                    Domoticz.Error(f"get em status timeout.  trying next ...")
                 except Exception as e:
-                    Domoticz.Error(f"get em status failed: {e}")   
+                    Domoticz.Error(f"get em status failed: {e}")
 
                 await asyncio.sleep(1.0)
                 try:
@@ -809,11 +811,11 @@ class MarstekPlugin:
                         self.someResponseReceived=True
                         self.processValues("ESS",responseES)
                 except asyncio.CancelledError:
-                    raise  # NEVER swallow this    
+                    raise  # NEVER swallow this
                 except TimeoutError:
-                    Domoticz.Error(f"get es status timeout.")            
+                    Domoticz.Error(f"get es status timeout. trying next ...")
                 except Exception as e:
-                    Domoticz.Error(f"get es status failed: {e}")                
+                    Domoticz.Error(f"get es status failed: {e}")
 
                 await asyncio.sleep(1.0)
                 try:
@@ -824,37 +826,42 @@ class MarstekPlugin:
                         self.someResponseReceived=True
                         self.processValues("ESM",responseESM)
                 except asyncio.CancelledError:
-                    raise  # NEVER swallow this   
+                    raise  # NEVER swallow this
                 except TimeoutError:
-                    Domoticz.Error(f"get es mode timeout.")             
+                    Domoticz.Error(f"get es mode timeout. trying next ...")
                 except Exception as e:
                     Domoticz.Error(f"get es mode failed: {e}")
 
                 await asyncio.sleep(1.0)
                 if self.deviceType==DEVICE_MODEL_VENUS_D or self.deviceType==DEVICE_MODEL_VENUS_A:
-                    try:   
-                        if debug: Domoticz.Log("trying get pv status ") 
+                    try:
+                        if debug: Domoticz.Log("trying get pv status ")
                         responsePV=await self.client.get_pv_status()
                         if debug: Domoticz.Log("pv status data received: "+str(responsePV))
                         if responsePV is not None:
                             self.someResponseReceived=True
                             self.processValues("PV",responsePV)
                     except asyncio.CancelledError:
-                        raise  # NEVER swallow this   
+                        raise  # NEVER swallow this
                     except TimeoutError:
-                        Domoticz.Error(f"get pv status timeout.")             
+                        Domoticz.Error(f"get pv status timeout. trying next ...")
                     except Exception as e:
-                        Domoticz.Error(f"get pv status failed: {e}")                
+                        Domoticz.Error(f"get pv status failed: {e}")
 
                 if self.emailAlertSent==True and self.someResponseReceived==True:
-                    if debug: Domoticz.Log("Communication restored. Data was received again during getVenusData cycle")
+                    if debug: Domoticz.Log("Communication restored. Data was received again from "+self.deviceType+" at "+self.IPAddress+" during getVenusData cycle")
                     self.emailAlertSent=False
                     self.failedCycleCount=0
-                    sendemail=requests.get("http://127.0.0.1:8080/json.htm?type=command&param=sendnotification&subject='Venus comms working again'&body='Problem solved'")
+                    subject = "ATTENTION: Venus communication working again"
+                    messageBody = "Problem was for " + self.deviceType + " at " + self.IPAddress
+                    url = "http://127.0.0.1:8080/json.htm?type=command&param=sendnotification"
+                    url += "&subject=" + urllib.parse.quote(subject)
+                    url += "&body=" + urllib.parse.quote(messageBody)
+                    sendemail = requests.get(url)
 
                 if self.someResponseReceived==False:
                     Domoticz.Error("No data received during complete cycle. Cycle nr "+str(self.failedCycleCount+1))
-                    Domoticz.Error("Restarting client ")  
+                    Domoticz.Error("Restarting client ")
                     asyncio.run_coroutine_threadsafe(
                         self.reset_client(),
                         self.loop
@@ -864,12 +871,17 @@ class MarstekPlugin:
                 return True
 
             except TimeoutError:
-                Domoticz.Error("Timeout on getting Marstek Venus data. Check connection and/or Open API setting in App.")
+                Domoticz.Error("Timeout on getting Marstek Venus data from "+self.deviceType+" at "+self.IPAddress+" Check connection and/or Open API setting in App.")
                 self.failedCycleCount+=1
                 if self.notificationsOn and self.emailAlertSent==False and self.failedCycleCount>=3:
                     # sending email after 3 full cycle failures of all 6 retrieval commands (usually due to Open API disabled)
                     Domoticz.Log("Sending email alert....")
-                    sendemail=requests.get("http://127.0.0.1:8080/json.htm?type=command&param=sendnotification&subject='ATTENTION: Venus communication timeout, check connection and Open API setting'&body='Please check'")
+                    subject = "ATTENTION: Venus communication timeout, check connection and Open API setting."
+                    messageBody = "Problem is for " + self.deviceType + " at " + self.IPAddress
+                    url = "http://127.0.0.1:8080/json.htm?type=command&param=sendnotification"
+                    url += "&subject=" + urllib.parse.quote(subject)
+                    url += "&body=" + urllib.parse.quote(messageBody)
+                    sendemail = requests.get(url)
                     self.emailAlertSent=True
                 return False
 
@@ -877,13 +889,18 @@ class MarstekPlugin:
                 Domoticz.Error("Cancellation on getting Marstek Venus data. Check connection and/or Open API setting in App (unless plugin was stopped).")
                 self.failedCycleCount+=1
                 return False
-                
+
             except Exception as e:
-                Domoticz.Error(f"Errors in getting Marstek Venus data. Check results. {e}")
+                Domoticz.Error(f"Errors in getting Marstek Venus data from "+self.deviceType+" at "+self.IPAddress+". Check results.")
                 self.failedCycleCount+=1
                 if self.notificationsOn and self.emailAlertSent==False:
                     Domoticz.Log("Sending email alert....")
-                    sendemail=requests.get("http://127.0.0.1:8080/json.htm?type=command&param=sendnotification&subject='ATTENTION: Venus communication data error'&body='Please check the log and solve the error.'")
+                    subject = "ATTENTION: Venus communication error, check connection and Open API setting."
+                    messageBody = "Problem is for " + self.deviceType + " at " + self.IPAddress
+                    url = "http://127.0.0.1:8080/json.htm?type=command&param=sendnotification"
+                    url += "&subject=" + urllib.parse.quote(subject)
+                    url += "&body=" + urllib.parse.quote(messageBody)
+                    sendemail = requests.get(url)
                     self.emailAlertSent=True
                 return False
         finally:
@@ -902,7 +919,7 @@ class MarstekPlugin:
                 Domoticz.Error(f"Task cancel error: {e}")
 
             await asyncio.sleep(0.1)
-        
+
             self.api_lock = asyncio.Lock()
 
             try:
