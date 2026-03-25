@@ -34,7 +34,7 @@ from const import (
 )
 
 logging.basicConfig(
-filename='marstekapi.log', # Log file name
+filename='./plugins/Marstek-Venus-plugin/marstekapi.log', # Log file name
 filemode='a', # Append mode ('w' for overwrite)
 format='%(asctime)s - %(levelname)s - %(message)s', # Log format
 level=logging.DEBUG # Minimum log level
