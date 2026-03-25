@@ -22,6 +22,7 @@ from const import (
     DISCOVERY_BROADCAST_INTERVAL,
     DISCOVERY_TIMEOUT,
     ERROR_METHOD_NOT_FOUND,
+    ERROR_PARSE_ERROR,
     METHOD_BATTERY_STATUS,
     METHOD_BLE_STATUS,
     METHOD_EM_STATUS,
@@ -33,12 +34,12 @@ from const import (
     METHOD_WIFI_STATUS,
 )
 
-logging.basicConfig(
-filename='./plugins/Marstek-Venus-plugin/marstekapi.log', # Log file name
-filemode='a', # Append mode ('w' for overwrite)
-format='%(asctime)s - %(levelname)s - %(message)s', # Log format
-level=logging.DEBUG # Minimum log level
-)
+#logging.basicConfig(
+#filename='./plugins/Marstek-Venus-plugin/marstekapi.log', # Log file name
+#filemode='a', # Append mode ('w' for overwrite)
+#format='%(asctime)s - %(levelname)s - %(message)s', # Log format
+#level=logging.DEBUG # Minimum log level
+#)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -318,12 +319,29 @@ class MarstekUDPClient:
                 self._stale_message_counter += 1
                 if self._stale_message_counter <= 5 or self._stale_message_counter % 25 == 0:
                     _LOGGER.debug(
-                        "Ignoring stale message while waiting for %s: got id=%s from %s (total stales=%d)",
+                        "Stale message while waiting for %s: got id=%s from %s (total stales=%d)",
                         method,
                         message.get("id"),
                         addr[0],
                         self._stale_message_counter,
                     )
+
+                if message.get("id") == 0 and "error" in message:
+                    err = message["error"]
+                    error_code=err.get("code")
+                    error_msg=err.get("message")
+                    _LOGGER.debug(
+                        "Don't wait any longer after stale message with error %s while waiting for %s: got id=%s from %s (total stales=%d)",
+                        err,
+                        method,
+                        message.get("id"),
+                        addr[0],
+                        self._stale_message_counter,
+                    )
+                    # added cleanup commands:
+                    response_data.clear()
+                    response_data.update(message)
+                    response_event.set()
 
         # Register temporary handler
         self.register_handler(handler)
@@ -368,9 +386,12 @@ class MarstekUDPClient:
                             error=error_msg,
                             error_code=error_code,
                         )
-                        raise MarstekAPIError(
-                            f"API error {error_code}: {error_msg}"
-                        )
+                        if error_code== ERROR_PARSE_ERROR:
+                            raise asyncio.TimeoutError(f"{method} failed after {attempt_limit} attempts")
+                        else:
+                            raise MarstekAPIError(
+                                f"API error {error_code}: {error_msg}"
+                            )
 
                     latency = loop.time() - attempt_started
                     self._stale_message_counter = 0
@@ -452,6 +473,8 @@ class MarstekUDPClient:
                         attempt_limit,
                     )
                     await asyncio.sleep(delay)
+                else:
+                    raise asyncio.TimeoutError(f"{method} failed after {attempt_limit} attempts")
 
         finally:
             self.unregister_handler(handler)
