@@ -33,7 +33,15 @@ from const import (
     METHOD_WIFI_STATUS,
 )
 
+logging.basicConfig(
+filename='marstekapi.log', # Log file name
+filemode='a', # Append mode ('w' for overwrite)
+format='%(asctime)s - %(levelname)s - %(message)s', # Log format
+level=logging.DEBUG # Minimum log level
+)
+
 _LOGGER = logging.getLogger(__name__)
+
 
 # Shared transports and protocols per port to ensure all clients on the same port
 # share the same UDP socket and can receive all messages
