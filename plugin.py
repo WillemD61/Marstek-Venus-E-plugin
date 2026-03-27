@@ -607,7 +607,7 @@ class MarstekPlugin:
         self.heartbeatCounter += 1
 
         if debug:
-            Domoticz.Log("onHeartbeat called")
+            Domoticz.Log("onHeartbeat called, hearbeatCounter is "+str(self.heartbeatCounter))
 
         # Handle polling interval > 30 seconds
         if self.heartbeatWaits > 0:
@@ -634,12 +634,14 @@ class MarstekPlugin:
         else:
             # time for next polling, no lock in place, is normal process
             if time.time() - self.lastDataRecvdTime > self.PollingInterval:
+                Domoticz.Log("No lock in place but data received long ago.")
                 # not locked, but also no data received for long time
                 # first do a reset
                 asyncio.run_coroutine_threadsafe(
                     self.reset_client(),
                     self.loop
                 )
+                time.sleep(1)
                 # send alert if not already done
                 if self.notificationsOn and self.emailAlertSent==False:
                     Domoticz.Log("Sending email alert....")
@@ -654,6 +656,7 @@ class MarstekPlugin:
             else:
                 # data received recently        
                 # check whether previous alert was sent
+                Domoticz.Log("No lock in place and data received recently.")
                 if self.notificationsOn and self.emailAlertSent==True:
                     Domoticz.Log("Sending email alert....")
                     subject = "PROBLEM SOLVED: Venus communication restored."
@@ -663,8 +666,10 @@ class MarstekPlugin:
                     url += "&body=\'" + messageBody + "\'"
                     Domoticz.Log("url : "+url)
                     sendemail = requests.get(url)
-                    self.emailAlertSent=True
+                    self.emailAlertSent=False
+
             # now continue polling
+            Domoticz.Log("Continue polling..")
             self.current_task=asyncio.run_coroutine_threadsafe(
                 self.getVenusData(),
                 self.loop
@@ -798,6 +803,7 @@ class MarstekPlugin:
         self.Hwid=Parameters['HardwareID']
         #async with self.api_lock:
         if self.api_lock.locked():
+            if debug: Domoticz.Log("Still locked, returning from getVenusData")
             return
         await self.api_lock.acquire()
         try:
@@ -920,7 +926,7 @@ class MarstekPlugin:
                 pass
 
             await asyncio.sleep(1)
-
+            
             self.client = MarstekUDPClient(host=self.IPAddress, port=self.Port)
 
             await self.client.connect()
