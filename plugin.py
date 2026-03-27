@@ -703,7 +703,7 @@ class MarstekPlugin:
                     Unit=DEVSLIST[DevName][0]
                     DeviceID="{:04x}{:04x}".format(self.Hwid,Unit)
 
-                    if debug: Domoticz.Log("processing values "+source+" "+DevName+" "+str(response[Dev]))
+                    #if debug: Domoticz.Log("processing values "+source+" "+DevName+" "+str(response[Dev]))
 
                     if (Devices[DeviceID].Units[Unit].Used==1) : # only process active devices
                         if ((type==80) or # temperature device
@@ -793,8 +793,8 @@ class MarstekPlugin:
                                 Devices[DeviceID].Units[Unit].nValue=0
                                 Devices[DeviceID].Units[Unit].Update()
 
-            else:
-                if debug: Domoticz.Log("not processing values "+source+" "+Dev+" "+str(response[Dev]))
+            #else:
+                #if debug: Domoticz.Log("not processing values "+source+" "+Dev+" "+str(response[Dev]))
 
 
     async def getVenusData(self):
