@@ -372,7 +372,9 @@ class MarstekPlugin:
             except Exception as e:
                 Domoticz.Error(f"error on discovering devices : {e}")
             finally:
-                if not deviceFound: Domoticz.Error("No Marstek device found on IPAddress: "+str(IPAddress))
+                if not deviceFound: 
+                    Domoticz.Error("No Marstek device found on IPAddress: "+str(IPAddress))
+                    self.deviceType="Venus"
                 await asyncio.sleep(1)
 
     def onStop(self):
