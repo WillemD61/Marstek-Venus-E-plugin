@@ -992,3 +992,4 @@ def DumpConfigToLog():
             Domoticz.Debug("--->Unit sValue:   '" + Unit.sValue + "'")
             Domoticz.Debug("--->Unit LastLevel: " + str(Unit.LastLevel))
     return
+    
