@@ -9,3 +9,5 @@ please put these 3 files into the folder created by the regular Marstek-venus-pl
 
 Please report any ssues here on github.
 
+You might need to adapt the multiplier for battery temperature, either 10, 1 or 0.1 depending on your hardware and firmware version.
+
