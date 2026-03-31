@@ -198,7 +198,7 @@ class MarstekUDPClient:
                         _LOGGER.warning("Error closing transport: %s", err)
 
                 if self.port in _shared_transports:
-                     _shared_transports[self.port].close() # added
+                    _shared_transports[self.port].close() # added
                     del _shared_transports[self.port]
                 if self.port in _shared_protocols:
                     del _shared_protocols[self.port]
