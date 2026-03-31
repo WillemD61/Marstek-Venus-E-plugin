@@ -644,17 +644,18 @@ class MarstekPlugin:
                     self.loop
                 )
                 time.sleep(1)
-                # send alert if not already done
-                if self.notificationsOn and self.emailAlertSent==False:
-                    Domoticz.Log("Sending email alert....")
-                    subject = "ATTENTION: Venus communication error, check connection and Open API setting."
-                    messageBody = "Problem for " + self.deviceType + " at " + self.IPAddress
-                    url = "http://127.0.0.1:8080/json.htm?type=command&param=sendnotification"
-                    url += "&subject=\'" + subject + "\'"
-                    url += "&body=\'" + messageBody + "\'"
-                    Domoticz.Log("url : "+url)
-                    sendemail = requests.get(url)
-                    self.emailAlertSent=True
+                if time.time() - self.lastDataRecvdTime > 3 * self.PollingInterval:
+                    # send alert if not already done
+                    if self.notificationsOn and self.emailAlertSent==False:
+                        Domoticz.Log("Sending email alert....")
+                        subject = "ATTENTION: Venus communication error, check connection and Open API setting."
+                        messageBody = "Problem for " + self.deviceType + " at " + self.IPAddress
+                        url = "http://127.0.0.1:8080/json.htm?type=command&param=sendnotification"
+                        url += "&subject=\'" + subject + "\'"
+                        url += "&body=\'" + messageBody + "\'"
+                        Domoticz.Log("url : "+url)
+                        sendemail = requests.get(url)
+                        self.emailAlertSent=True
             else:
                 # data received recently        
                 # check whether previous alert was sent
