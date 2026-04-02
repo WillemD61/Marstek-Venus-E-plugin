@@ -189,8 +189,8 @@ DEVSLIST={
     "charg_flag"      : [2,  244, 73, 0, {}, 1   ,"Charge permission","BAT"],
     "dischrg_flag"    : [3,  244, 73, 0, {}, 1   ,"Discharge permission","BAT"],
     "bat_temp"        : [4,   80,  5, 0, {}, 10   ,"Battery temperature","BAT"],
-    "bat_capacity"    : [5,  113,  0, 0, {}, 1   ,"Remaining Capacity","BAT"],
-    "rated_capacity"  : [6,  113,  0, 0, {}, 1   ,"Rated Capacity","BAT"],
+    "bat_capacity"    : [5,  243, 31, 0, {'Custom': '1;Wh'}, 1   ,"Remaining Capacity","BAT"],
+    "rated_capacity"  : [6,  243, 31, 0, {'Custom': '1;Wh'}, 1   ,"Rated Capacity","BAT"],
 # response PV.GetStatus
     "pv1_power"       : [7,  243, 29, 0, {'EnergyMeterMode': '1'}, 0.1   ,"PV1 power","PV"], # 4 groups, although not in specification ver. 1.0
     "pv1_voltage"     : [8,  243,  8, 0, {}, 1   ,"PV1 voltage","PV"],
@@ -216,7 +216,7 @@ DEVSLIST={
 # note in case of auto or AI mode the response of Es.GetMode also includes EM.GetStatus data
 # reponse ES.GetStatus
     "es_bat_soc"      : [27, 243,  6, 0, {}, 1   ,"ESS Total SOC","ESS"],  # duplicate ? note es_ added to name to create unique key
-    "bat_cap"         : [28, 113,  0, 0, {}, 1   ,"ESS Rated capacity","ESS"], # duplicate value but still unique name (other is bat_capacity)
+    "bat_cap"         : [28, 243, 31, 0, {'Custom': '1;Wh'}, 1   ,"ESS Rated capacity","ESS"], # duplicate value but still unique name (other is bat_capacity)
     "pv_power"        : [29, 243, 29, 0, {'EnergyMeterMode': '1'}, 1   ,"ESS PV charging power","ESS"],
     "es_ongrid_power" : [30, 243, 29, 0, {'EnergyMeterMode': '1'}, 1   ,"ESS on-grid power","ESS"], # duplicate ? note es_ added to name to create unique key
     "es_offgrid_power": [31, 243, 29, 0, {'EnergyMeterMode': '1'}, 1   ,"ESS off-grid power","ESS"], # duplicate ? note es_ added to name to create unique key
