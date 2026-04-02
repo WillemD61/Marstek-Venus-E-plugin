@@ -188,7 +188,7 @@ DEVSLIST={
     "soc"             : [1,  243,  6, 0, {}, 1   ,"Battery SOC","BAT"], # duplicate ? (soc, bat_soc)
     "charg_flag"      : [2,  244, 73, 0, {}, 1   ,"Charge permission","BAT"],
     "dischrg_flag"    : [3,  244, 73, 0, {}, 1   ,"Discharge permission","BAT"],
-    "bat_temp"        : [4,   80,  5, 0, {}, 10   ,"Battery temperature","BAT"],
+    "bat_temp"        : [4,   80,  5, 0, {}, 1   ,"Battery temperature","BAT"],
     "bat_capacity"    : [5,  243, 31, 0, {'Custom': '1;Wh'}, 1   ,"Remaining Capacity","BAT"],
     "rated_capacity"  : [6,  243, 31, 0, {'Custom': '1;Wh'}, 1   ,"Rated Capacity","BAT"],
 # response PV.GetStatus
