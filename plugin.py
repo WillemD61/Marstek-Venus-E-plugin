@@ -626,10 +626,10 @@ class MarstekPlugin:
                 Domoticz.Log("Time since last data received : "+str(int(time.time() - self.lastDataRecvdTime)))
             if time.time() - self.lastDataRecvdTime > self.PollingInterval:
                 Domoticz.Error("No data during full polling interval time , restarting client ")
-                asyncio.run_coroutine_threadsafe(
-                    self.reset_client(),
-                    self.loop
-                )
+                #asyncio.run_coroutine_threadsafe(
+                #    self.reset_client(),
+                #    self.loop
+                #)
             Domoticz.Log("Waiting another heartbeat ....")
             return
 
@@ -639,10 +639,10 @@ class MarstekPlugin:
                 Domoticz.Log("No lock in place but data received long ago.")
                 # not locked, but also no data received for long time
                 # first do a reset
-                asyncio.run_coroutine_threadsafe(
-                    self.reset_client(),
-                    self.loop
-                )
+                #asyncio.run_coroutine_threadsafe(
+                #    self.reset_client(),
+                #    self.loop
+                #)
                 time.sleep(1)
                 if time.time() - self.lastDataRecvdTime > 3 * self.PollingInterval:
                     # send alert if not already done
