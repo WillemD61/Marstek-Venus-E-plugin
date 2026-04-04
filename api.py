@@ -477,6 +477,25 @@ class MarstekUDPClient:
                 else:
                     raise asyncio.TimeoutError(f"{method} failed after {attempt_limit} attempts")
 
+        except asyncio.TimeoutError:
+            self._record_command_result(
+                method,
+                success=False,
+                attempt=attempt,
+                latency=None,
+                timeout=True,
+                error="timeout",
+            )
+            _LOGGER.warning(
+                "Command %s timed out after %ss (attempt %d/%d, host=%s)",
+                method,
+                effective_timeout,
+                attempt,
+                attempt_limit,
+                self.host,
+            )
+            last_exception = None
+        
         finally:
             self.unregister_handler(handler)
 
