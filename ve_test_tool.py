@@ -37,7 +37,7 @@ def load_module_from_file(module_name: str, file_path: Path):
 
 
 # Get paths to integration modules
-integration_path = Path(__file__).parent.parent / "Marstek-Venus-plugin"
+integration_path = Path(__file__).parent.parent / "Marstek-Venus-E-plugin"
 if not integration_path.exists():
     integration_path = Path("/config/custom_components/marstek_local_api")
 
